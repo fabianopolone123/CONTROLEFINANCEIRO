@@ -1,5 +1,6 @@
 package com.fabiano.controlefinanca.ui
 
+import android.app.DatePickerDialog
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -11,6 +12,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,7 +31,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material3.Button
@@ -49,6 +50,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -71,13 +73,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fabiano.controlefinanca.data.TransactionEntity
 import com.fabiano.controlefinanca.data.TransactionType
+import com.fabiano.controlefinanca.data.RecurrenceType
 import com.fabiano.controlefinanca.ui.components.ExpensePieChart
 import com.fabiano.controlefinanca.ui.components.MonthlyBarChart
+import java.util.Calendar
 
-private enum class AppTab(val label: String) {
-    DASHBOARD("Resumo"),
-    LIST("Lancamentos"),
-    ADD("Adicionar")
+private enum class AppTab {
+    DASHBOARD,
+    LIST,
+    ADD
 }
 
 @Composable
@@ -133,19 +137,13 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
                         selected = currentTab == AppTab.DASHBOARD,
                         onClick = { currentTab = AppTab.DASHBOARD },
                         icon = { Icon(Icons.Rounded.PieChart, contentDescription = null) },
-                        label = { Text(AppTab.DASHBOARD.label) }
+                        label = { Text("Resumo") }
                     )
                     NavigationBarItem(
                         selected = currentTab == AppTab.LIST,
                         onClick = { currentTab = AppTab.LIST },
                         icon = { Icon(Icons.AutoMirrored.Rounded.List, contentDescription = null) },
-                        label = { Text(AppTab.LIST.label) }
-                    )
-                    NavigationBarItem(
-                        selected = currentTab == AppTab.ADD,
-                        onClick = { currentTab = AppTab.ADD },
-                        icon = { Icon(Icons.Rounded.AddCircle, contentDescription = null) },
-                        label = { Text(AppTab.ADD.label) }
+                        label = { Text("Lancamentos") }
                     )
                 }
             }
@@ -168,12 +166,16 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
                     preselectedType = preselectedTypeName?.let { TransactionType.valueOf(it) },
                     onPreselectedTypeConsumed = { preselectedTypeName = null },
                     onAddCategory = viewModel::addCategory,
-                    onSubmit = { type, amount, category, note ->
+                    onSubmit = { type, amount, category, note, transactionDateMillis, recurrenceType, installmentCurrent, installmentTotal ->
                         viewModel.addTransaction(
                             type = type,
                             amount = amount,
                             category = category,
-                            note = note
+                            note = note,
+                            transactionDateMillis = transactionDateMillis,
+                            recurrenceType = recurrenceType,
+                            installmentCurrent = installmentCurrent,
+                            installmentTotal = installmentTotal
                         )
                     },
                     modifier = Modifier.padding(padding)
@@ -427,12 +429,25 @@ private fun AddTransactionScreen(
     preselectedType: TransactionType?,
     onPreselectedTypeConsumed: () -> Unit,
     onAddCategory: (TransactionType, String) -> Unit,
-    onSubmit: (TransactionType, Double, String, String) -> Unit,
+    onSubmit: (
+        TransactionType,
+        Double,
+        String,
+        String,
+        Long,
+        RecurrenceType,
+        Int,
+        Int
+    ) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var type by rememberSaveable { mutableStateOf(TransactionType.EXPENSE) }
     var amountText by rememberSaveable { mutableStateOf("") }
+    var transactionDateMillis by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
+    var recurrenceType by rememberSaveable { mutableStateOf(RecurrenceType.ONE_TIME) }
+    var installmentCurrentText by rememberSaveable { mutableStateOf("1") }
+    var installmentTotalText by rememberSaveable { mutableStateOf("2") }
     var selectedCategory by rememberSaveable { mutableStateOf("") }
     var isCategoryMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var isCreatingNewCategory by rememberSaveable { mutableStateOf(false) }
@@ -460,6 +475,30 @@ private fun AddTransactionScreen(
             selectedCategory = selectedTypeCategories.firstOrNull().orEmpty()
         }
         if (!isCreatingNewCategory) newCategoryText = ""
+    }
+    val initialDate = remember(transactionDateMillis) {
+        Calendar.getInstance().apply { timeInMillis = transactionDateMillis }
+    }
+
+    val openDatePicker = {
+        DatePickerDialog(
+            context,
+            { _, year, monthOfYear, dayOfMonth ->
+                val picked = Calendar.getInstance().apply {
+                    set(Calendar.YEAR, year)
+                    set(Calendar.MONTH, monthOfYear)
+                    set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                    set(Calendar.HOUR_OF_DAY, 12)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                transactionDateMillis = picked.timeInMillis
+            },
+            initialDate.get(Calendar.YEAR),
+            initialDate.get(Calendar.MONTH),
+            initialDate.get(Calendar.DAY_OF_MONTH)
+        ).show()
     }
 
     Column(
@@ -495,6 +534,72 @@ private fun AddTransactionScreen(
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
+
+        OutlinedTextField(
+            value = transactionDateMillis.toDateLabel(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Data da transacao") },
+            trailingIcon = {
+                Text(
+                    text = "Hoje",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { openDatePicker() },
+            colors = OutlinedTextFieldDefaults.colors()
+        )
+
+        Text(
+            text = "Recorrencia",
+            style = MaterialTheme.typography.titleSmall
+        )
+
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                FilterChip(
+                    selected = recurrenceType == RecurrenceType.ONE_TIME,
+                    onClick = { recurrenceType = RecurrenceType.ONE_TIME },
+                    label = { Text("Unica") }
+                )
+            }
+            item {
+                FilterChip(
+                    selected = recurrenceType == RecurrenceType.FIXED,
+                    onClick = { recurrenceType = RecurrenceType.FIXED },
+                    label = { Text("Fixa") }
+                )
+            }
+            item {
+                FilterChip(
+                    selected = recurrenceType == RecurrenceType.INSTALLMENT,
+                    onClick = { recurrenceType = RecurrenceType.INSTALLMENT },
+                    label = { Text("Parcelada") }
+                )
+            }
+        }
+
+        if (recurrenceType == RecurrenceType.INSTALLMENT) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = installmentCurrentText,
+                    onValueChange = { installmentCurrentText = it },
+                    label = { Text("Parcela atual") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = installmentTotalText,
+                    onValueChange = { installmentTotalText = it },
+                    label = { Text("Total parcelas") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
 
         Text(
             text = "Categoria",
@@ -625,9 +730,51 @@ private fun AddTransactionScreen(
                     newCategoryText = ""
                 }
 
-                onSubmit(type, parsed, finalCategory, note)
+                val installmentCurrent = if (recurrenceType == RecurrenceType.INSTALLMENT) {
+                    installmentCurrentText.toIntOrNull()
+                } else {
+                    1
+                }
+                val installmentTotal = if (recurrenceType == RecurrenceType.INSTALLMENT) {
+                    installmentTotalText.toIntOrNull()
+                } else {
+                    1
+                }
+                if (recurrenceType == RecurrenceType.INSTALLMENT) {
+                    if (installmentCurrent == null || installmentTotal == null) {
+                        Toast.makeText(
+                            context,
+                            "Informe parcelas validas.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        return@Button
+                    }
+                    if (installmentTotal < 2 || installmentCurrent !in 1..installmentTotal) {
+                        Toast.makeText(
+                            context,
+                            "Parcela atual deve estar entre 1 e total.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        return@Button
+                    }
+                }
+
+                onSubmit(
+                    type,
+                    parsed,
+                    finalCategory,
+                    note,
+                    transactionDateMillis,
+                    recurrenceType,
+                    installmentCurrent ?: 1,
+                    installmentTotal ?: 1
+                )
                 amountText = ""
                 note = ""
+                if (recurrenceType == RecurrenceType.INSTALLMENT) {
+                    installmentCurrentText = "1"
+                    installmentTotalText = "2"
+                }
                 Toast.makeText(
                     context,
                     "Lancamento salvo no celular.",
@@ -693,6 +840,11 @@ private fun CompactTransactionRow(item: TransactionEntity) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Text(
+                text = "${item.transactionDateMillis.toDateLabel()} • ${item.recurrenceLabel()}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
+            )
         }
         Text(
             text = if (item.type == TransactionType.INCOME) {
@@ -744,9 +896,14 @@ private fun TransactionItem(item: TransactionEntity, onDelete: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = item.dateMillis.toDateLabel(),
+                    text = item.transactionDateMillis.toDateLabel(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
+                )
+                Text(
+                    text = item.recurrenceLabel(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
@@ -772,5 +929,13 @@ private fun TransactionItem(item: TransactionEntity, onDelete: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+private fun TransactionEntity.recurrenceLabel(): String {
+    return when (recurrenceType) {
+        RecurrenceType.ONE_TIME -> "Unica"
+        RecurrenceType.FIXED -> "Fixa"
+        RecurrenceType.INSTALLMENT -> "${installmentCurrent}/${installmentTotal}"
     }
 }

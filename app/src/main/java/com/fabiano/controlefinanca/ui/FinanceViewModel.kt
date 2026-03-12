@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.fabiano.controlefinanca.data.CategoryTotalRow
 import com.fabiano.controlefinanca.data.FinanceRepository
 import com.fabiano.controlefinanca.data.MonthlyNetRow
+import com.fabiano.controlefinanca.data.RecurrenceType
 import com.fabiano.controlefinanca.data.TransactionEntity
 import com.fabiano.controlefinanca.data.TransactionType
 import kotlinx.coroutines.flow.SharingStarted
@@ -82,14 +83,22 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         type: TransactionType,
         amount: Double,
         category: String,
-        note: String
+        note: String,
+        transactionDateMillis: Long,
+        recurrenceType: RecurrenceType,
+        installmentCurrent: Int,
+        installmentTotal: Int
     ) {
         viewModelScope.launch {
             repository.addTransaction(
                 type = type,
                 amount = amount,
                 category = category,
-                note = note
+                note = note,
+                transactionDateMillis = transactionDateMillis,
+                recurrenceType = recurrenceType,
+                installmentCurrent = installmentCurrent,
+                installmentTotal = installmentTotal
             )
         }
     }

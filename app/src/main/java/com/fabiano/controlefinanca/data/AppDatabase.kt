@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [TransactionEntity::class, CategoryEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(DbConverters::class)
@@ -21,9 +21,10 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         @Volatile
         private var instance: AppDatabase? = null
+
         private val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `categories` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -32,19 +33,55 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                database.execSQL(
+                db.execSQL(
                     """
                     CREATE UNIQUE INDEX IF NOT EXISTS
                     `index_categories_type_name`
                     ON `categories` (`type`, `name`)
                     """.trimIndent()
                 )
-                database.execSQL(
+                db.execSQL(
                     """
                     INSERT OR IGNORE INTO categories (type, name)
                     SELECT type, category
                     FROM transactions
                     WHERE TRIM(category) <> ''
+                    """.trimIndent()
+                )
+            }
+        }
+
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    ALTER TABLE transactions
+                    ADD COLUMN transactionDateMillis INTEGER NOT NULL DEFAULT 0
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    ALTER TABLE transactions
+                    ADD COLUMN recurrenceType TEXT NOT NULL DEFAULT 'ONE_TIME'
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    ALTER TABLE transactions
+                    ADD COLUMN installmentCurrent INTEGER NOT NULL DEFAULT 1
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    ALTER TABLE transactions
+                    ADD COLUMN installmentTotal INTEGER NOT NULL DEFAULT 1
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    UPDATE transactions
+                    SET transactionDateMillis = dateMillis
+                    WHERE transactionDateMillis = 0
                     """.trimIndent()
                 )
             }
@@ -57,7 +94,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "controle_financa.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { instance = it }
             }

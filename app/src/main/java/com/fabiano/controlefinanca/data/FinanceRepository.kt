@@ -31,9 +31,23 @@ class FinanceRepository(context: Context) {
         type: TransactionType,
         amount: Double,
         category: String,
-        note: String
+        note: String,
+        transactionDateMillis: Long,
+        recurrenceType: RecurrenceType,
+        installmentCurrent: Int,
+        installmentTotal: Int
     ) {
         val normalizedCategory = normalizeCategory(category) ?: defaultCategory(type)
+        val normalizedInstallmentTotal = if (recurrenceType == RecurrenceType.INSTALLMENT) {
+            installmentTotal.coerceAtLeast(2)
+        } else {
+            1
+        }
+        val normalizedInstallmentCurrent = if (recurrenceType == RecurrenceType.INSTALLMENT) {
+            installmentCurrent.coerceIn(1, normalizedInstallmentTotal)
+        } else {
+            1
+        }
 
         categoryDao.insert(
             CategoryEntity(
@@ -48,7 +62,11 @@ class FinanceRepository(context: Context) {
                 amount = amount,
                 category = normalizedCategory,
                 note = note.trim(),
-                dateMillis = System.currentTimeMillis()
+                dateMillis = System.currentTimeMillis(),
+                transactionDateMillis = transactionDateMillis,
+                recurrenceType = recurrenceType,
+                installmentCurrent = normalizedInstallmentCurrent,
+                installmentTotal = normalizedInstallmentTotal
             )
         )
     }

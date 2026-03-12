@@ -8,4 +8,10 @@ class DbConverters {
 
     @TypeConverter
     fun toType(value: String): TransactionType = TransactionType.valueOf(value)
+
+    @TypeConverter
+    fun fromRecurrence(type: RecurrenceType): String = type.name
+
+    @TypeConverter
+    fun toRecurrence(value: String): RecurrenceType = RecurrenceType.valueOf(value)
 }

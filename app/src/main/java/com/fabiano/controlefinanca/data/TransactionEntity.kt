@@ -10,5 +10,9 @@ data class TransactionEntity(
     val amount: Double,
     val category: String,
     val note: String,
-    val dateMillis: Long
+    val dateMillis: Long,
+    val transactionDateMillis: Long,
+    val recurrenceType: RecurrenceType,
+    val installmentCurrent: Int,
+    val installmentTotal: Int
 )

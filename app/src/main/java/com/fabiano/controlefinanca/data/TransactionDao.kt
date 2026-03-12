@@ -13,7 +13,7 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteById(id: Long)
 
-    @Query("SELECT * FROM transactions ORDER BY dateMillis DESC, id DESC")
+    @Query("SELECT * FROM transactions ORDER BY transactionDateMillis DESC, id DESC")
     fun observeAll(): Flow<List<TransactionEntity>>
 
     @Query(
@@ -43,7 +43,7 @@ interface TransactionDao {
         SELECT month, net
         FROM (
             SELECT 
-                strftime('%Y-%m', datetime(dateMillis / 1000, 'unixepoch', 'localtime')) AS month,
+                strftime('%Y-%m', datetime(transactionDateMillis / 1000, 'unixepoch', 'localtime')) AS month,
                 SUM(CASE WHEN type = 'INCOME' THEN amount ELSE -amount END) AS net
             FROM transactions
             GROUP BY month
