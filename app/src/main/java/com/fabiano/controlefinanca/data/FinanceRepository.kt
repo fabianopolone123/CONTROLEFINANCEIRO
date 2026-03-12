@@ -34,17 +34,11 @@ class FinanceRepository(context: Context) {
         note: String,
         transactionDateMillis: Long,
         recurrenceType: RecurrenceType,
-        installmentCurrent: Int,
         installmentTotal: Int
     ) {
         val normalizedCategory = normalizeCategory(category) ?: defaultCategory(type)
         val normalizedInstallmentTotal = if (recurrenceType == RecurrenceType.INSTALLMENT) {
             installmentTotal.coerceAtLeast(2)
-        } else {
-            1
-        }
-        val normalizedInstallmentCurrent = if (recurrenceType == RecurrenceType.INSTALLMENT) {
-            installmentCurrent.coerceIn(1, normalizedInstallmentTotal)
         } else {
             1
         }
@@ -65,7 +59,7 @@ class FinanceRepository(context: Context) {
                 dateMillis = System.currentTimeMillis(),
                 transactionDateMillis = transactionDateMillis,
                 recurrenceType = recurrenceType,
-                installmentCurrent = normalizedInstallmentCurrent,
+                installmentCurrent = 1,
                 installmentTotal = normalizedInstallmentTotal
             )
         )

@@ -12,7 +12,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,12 +44,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -166,7 +165,7 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
                     preselectedType = preselectedTypeName?.let { TransactionType.valueOf(it) },
                     onPreselectedTypeConsumed = { preselectedTypeName = null },
                     onAddCategory = viewModel::addCategory,
-                    onSubmit = { type, amount, category, note, transactionDateMillis, recurrenceType, installmentCurrent, installmentTotal ->
+                    onSubmit = { type, amount, category, note, transactionDateMillis, recurrenceType, installmentTotal ->
                         viewModel.addTransaction(
                             type = type,
                             amount = amount,
@@ -174,7 +173,6 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
                             note = note,
                             transactionDateMillis = transactionDateMillis,
                             recurrenceType = recurrenceType,
-                            installmentCurrent = installmentCurrent,
                             installmentTotal = installmentTotal
                         )
                     },
@@ -436,7 +434,6 @@ private fun AddTransactionScreen(
         String,
         Long,
         RecurrenceType,
-        Int,
         Int
     ) -> Unit,
     modifier: Modifier = Modifier
@@ -446,7 +443,6 @@ private fun AddTransactionScreen(
     var amountText by rememberSaveable { mutableStateOf("") }
     var transactionDateMillis by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
     var recurrenceType by rememberSaveable { mutableStateOf(RecurrenceType.ONE_TIME) }
-    var installmentCurrentText by rememberSaveable { mutableStateOf("1") }
     var installmentTotalText by rememberSaveable { mutableStateOf("2") }
     var selectedCategory by rememberSaveable { mutableStateOf("") }
     var isCategoryMenuExpanded by rememberSaveable { mutableStateOf(false) }
@@ -500,6 +496,16 @@ private fun AddTransactionScreen(
             initialDate.get(Calendar.DAY_OF_MONTH)
         ).show()
     }
+    val fieldColors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+        focusedTextColor = Color.White,
+        unfocusedTextColor = Color.White,
+        focusedLabelColor = Color.White,
+        unfocusedLabelColor = Color(0xFFD1D5DB),
+        focusedLeadingIconColor = Color.White,
+        unfocusedLeadingIconColor = Color.White,
+        focusedTrailingIconColor = Color.White,
+        unfocusedTrailingIconColor = Color.White
+    )
 
     Column(
         modifier = modifier
@@ -532,30 +538,26 @@ private fun AddTransactionScreen(
             onValueChange = { amountText = it },
             label = { Text("Valor (ex.: 130,50)") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = fieldColors
         )
 
-        OutlinedTextField(
-            value = transactionDateMillis.toDateLabel(),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Data da transacao") },
-            trailingIcon = {
-                Text(
-                    text = "Hoje",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { openDatePicker() },
-            colors = OutlinedTextFieldDefaults.colors()
-        )
+        OutlinedButton(
+            onClick = openDatePicker,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = "Data: ${transactionDateMillis.toDateLabel()}",
+                color = Color.White,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         Text(
             text = "Recorrencia",
-            style = MaterialTheme.typography.titleSmall
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White
         )
 
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -583,27 +585,20 @@ private fun AddTransactionScreen(
         }
 
         if (recurrenceType == RecurrenceType.INSTALLMENT) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = installmentCurrentText,
-                    onValueChange = { installmentCurrentText = it },
-                    label = { Text("Parcela atual") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = installmentTotalText,
-                    onValueChange = { installmentTotalText = it },
-                    label = { Text("Total parcelas") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            OutlinedTextField(
+                value = installmentTotalText,
+                onValueChange = { installmentTotalText = it },
+                label = { Text("Qtd. de parcelas") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = fieldColors
+            )
         }
 
         Text(
             text = "Categoria",
-            style = MaterialTheme.typography.titleSmall
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White
         )
 
         ExposedDropdownMenuBox(
@@ -619,7 +614,8 @@ private fun AddTransactionScreen(
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isCategoryMenuExpanded) },
                 modifier = Modifier
                     .menuAnchor()
-                    .fillMaxWidth()
+                    .fillMaxWidth(),
+                colors = fieldColors
             )
             ExposedDropdownMenu(
                 expanded = isCategoryMenuExpanded,
@@ -651,7 +647,8 @@ private fun AddTransactionScreen(
                 onValueChange = { newCategoryText = it },
                 label = { Text("Nome da nova categoria") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = fieldColors
             )
             Button(
                 onClick = {
@@ -694,7 +691,8 @@ private fun AddTransactionScreen(
             value = note,
             onValueChange = { note = it },
             label = { Text("Descricao (opcional)") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = fieldColors
         )
 
         Button(
@@ -730,18 +728,13 @@ private fun AddTransactionScreen(
                     newCategoryText = ""
                 }
 
-                val installmentCurrent = if (recurrenceType == RecurrenceType.INSTALLMENT) {
-                    installmentCurrentText.toIntOrNull()
-                } else {
-                    1
-                }
                 val installmentTotal = if (recurrenceType == RecurrenceType.INSTALLMENT) {
                     installmentTotalText.toIntOrNull()
                 } else {
                     1
                 }
                 if (recurrenceType == RecurrenceType.INSTALLMENT) {
-                    if (installmentCurrent == null || installmentTotal == null) {
+                    if (installmentTotal == null) {
                         Toast.makeText(
                             context,
                             "Informe parcelas validas.",
@@ -749,10 +742,10 @@ private fun AddTransactionScreen(
                         ).show()
                         return@Button
                     }
-                    if (installmentTotal < 2 || installmentCurrent !in 1..installmentTotal) {
+                    if (installmentTotal < 2) {
                         Toast.makeText(
                             context,
-                            "Parcela atual deve estar entre 1 e total.",
+                            "Qtd. de parcelas deve ser no minimo 2.",
                             Toast.LENGTH_SHORT
                         ).show()
                         return@Button
@@ -766,13 +759,11 @@ private fun AddTransactionScreen(
                     note,
                     transactionDateMillis,
                     recurrenceType,
-                    installmentCurrent ?: 1,
                     installmentTotal ?: 1
                 )
                 amountText = ""
                 note = ""
                 if (recurrenceType == RecurrenceType.INSTALLMENT) {
-                    installmentCurrentText = "1"
                     installmentTotalText = "2"
                 }
                 Toast.makeText(
@@ -841,7 +832,7 @@ private fun CompactTransactionRow(item: TransactionEntity) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "${item.transactionDateMillis.toDateLabel()} • ${item.recurrenceLabel()}",
+                text = "${item.transactionDateMillis.toDateLabel()} | ${item.recurrenceLabel()}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -936,6 +927,6 @@ private fun TransactionEntity.recurrenceLabel(): String {
     return when (recurrenceType) {
         RecurrenceType.ONE_TIME -> "Unica"
         RecurrenceType.FIXED -> "Fixa"
-        RecurrenceType.INSTALLMENT -> "${installmentCurrent}/${installmentTotal}"
+        RecurrenceType.INSTALLMENT -> "Parc. ${installmentCurrent}/${installmentTotal}"
     }
 }

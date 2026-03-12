@@ -86,7 +86,6 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         note: String,
         transactionDateMillis: Long,
         recurrenceType: RecurrenceType,
-        installmentCurrent: Int,
         installmentTotal: Int
     ) {
         viewModelScope.launch {
@@ -97,7 +96,6 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 note = note,
                 transactionDateMillis = transactionDateMillis,
                 recurrenceType = recurrenceType,
-                installmentCurrent = installmentCurrent,
                 installmentTotal = installmentTotal
             )
         }
