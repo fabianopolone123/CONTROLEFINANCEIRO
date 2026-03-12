@@ -1,6 +1,15 @@
 package com.fabiano.controlefinanca.ui
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,13 +28,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -70,6 +84,14 @@ private enum class AppTab(val label: String) {
 fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var currentTab by rememberSaveable { mutableStateOf(AppTab.DASHBOARD) }
+    var isQuickAddExpanded by rememberSaveable { mutableStateOf(false) }
+    var preselectedTypeName by rememberSaveable { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(currentTab) {
+        if (currentTab != AppTab.DASHBOARD) {
+            isQuickAddExpanded = false
+        }
+    }
 
     val appBackground = Brush.verticalGradient(
         colors = listOf(
@@ -86,6 +108,25 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
     ) {
         Scaffold(
             containerColor = Color.Transparent,
+            floatingActionButtonPosition = FabPosition.Center,
+            floatingActionButton = {
+                if (currentTab == AppTab.DASHBOARD) {
+                    DashboardQuickAddFab(
+                        expanded = isQuickAddExpanded,
+                        onToggle = { isQuickAddExpanded = !isQuickAddExpanded },
+                        onAddExpense = {
+                            preselectedTypeName = TransactionType.EXPENSE.name
+                            isQuickAddExpanded = false
+                            currentTab = AppTab.ADD
+                        },
+                        onAddIncome = {
+                            preselectedTypeName = TransactionType.INCOME.name
+                            isQuickAddExpanded = false
+                            currentTab = AppTab.ADD
+                        }
+                    )
+                }
+            },
             bottomBar = {
                 NavigationBar(containerColor = Color(0xFF131B2B)) {
                     NavigationBarItem(
@@ -124,6 +165,8 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
                 AppTab.ADD -> AddTransactionScreen(
                     expenseCategories = state.expenseCategories,
                     incomeCategories = state.incomeCategories,
+                    preselectedType = preselectedTypeName?.let { TransactionType.valueOf(it) },
+                    onPreselectedTypeConsumed = { preselectedTypeName = null },
                     onAddCategory = viewModel::addCategory,
                     onSubmit = { type, amount, category, note ->
                         viewModel.addTransaction(
@@ -244,6 +287,67 @@ private fun DashboardScreen(
 }
 
 @Composable
+private fun DashboardQuickAddFab(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onAddExpense: () -> Unit,
+    onAddIncome: () -> Unit
+) {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 45f else 0f,
+        animationSpec = tween(durationMillis = 220),
+        label = "fab_rotation"
+    )
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn(animationSpec = tween(220)) +
+                slideInVertically(animationSpec = tween(220), initialOffsetY = { it / 2 }) +
+                scaleIn(animationSpec = tween(220), initialScale = 0.85f),
+            exit = fadeOut(animationSpec = tween(160)) +
+                slideOutVertically(animationSpec = tween(160), targetOffsetY = { it / 2 }) +
+                scaleOut(animationSpec = tween(160), targetScale = 0.85f)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onAddIncome,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF33D17A)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Nova receita", color = Color(0xFF001A0C), fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = onAddExpense,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5C8A)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Nova despesa", color = Color(0xFF2B0010), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        FloatingActionButton(
+            onClick = onToggle,
+            containerColor = Color(0xFF00D1FF),
+            contentColor = Color(0xFF02131A)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Add,
+                contentDescription = "Adicionar",
+                modifier = Modifier.graphicsLayer(rotationZ = rotation)
+            )
+        }
+    }
+}
+
+@Composable
 private fun TransactionsScreen(
     transactions: List<TransactionEntity>,
     onDelete: (Long) -> Unit,
@@ -320,6 +424,8 @@ private fun TransactionsScreen(
 private fun AddTransactionScreen(
     expenseCategories: List<String>,
     incomeCategories: List<String>,
+    preselectedType: TransactionType?,
+    onPreselectedTypeConsumed: () -> Unit,
     onAddCategory: (TransactionType, String) -> Unit,
     onSubmit: (TransactionType, Double, String, String) -> Unit,
     modifier: Modifier = Modifier
@@ -332,6 +438,13 @@ private fun AddTransactionScreen(
     var isCreatingNewCategory by rememberSaveable { mutableStateOf(false) }
     var newCategoryText by rememberSaveable { mutableStateOf("") }
     var note by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(preselectedType) {
+        if (preselectedType != null) {
+            type = preselectedType
+            onPreselectedTypeConsumed()
+        }
+    }
 
     val selectedTypeCategories = if (type == TransactionType.EXPENSE) {
         expenseCategories
