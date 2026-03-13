@@ -1,6 +1,7 @@
 package com.fabiano.controlefinanca.data
 
 import android.content.Context
+import androidx.room.withTransaction
 import java.util.Locale
 import kotlin.math.abs
 
@@ -100,26 +101,23 @@ class FinanceRepository(context: Context) {
                     ofxFingerprint = fingerprint
                 )
             )
-        }
+        }.distinctBy { it.fingerprint }
 
         val fingerprintPool = importedCandidates.map { it.fingerprint }.distinct()
-        val existingFingerprints = if (fingerprintPool.isNotEmpty()) {
-            transactionDao.findExistingOfxFingerprints(fingerprintPool).filterNotNull().toSet()
-        } else {
-            emptySet()
+        return database.withTransaction {
+            val existingFingerprints = findExistingFingerprints(fingerprintPool)
+
+            categoryDao.insert(CategoryEntity(type = TransactionType.INCOME, name = "Nao categorizado"))
+            categoryDao.insert(CategoryEntity(type = TransactionType.EXPENSE, name = "Nao categorizado"))
+
+            val imported = importedCandidates
+                .filterNot { existingFingerprints.contains(it.fingerprint) }
+                .map { it.entity }
+
+            if (imported.isEmpty()) return@withTransaction 0
+            transactionDao.insertAll(imported)
+            imported.size
         }
-
-        categoryDao.insert(CategoryEntity(type = TransactionType.INCOME, name = "Nao categorizado"))
-        categoryDao.insert(CategoryEntity(type = TransactionType.EXPENSE, name = "Nao categorizado"))
-
-        val imported = importedCandidates
-            .filterNot { existingFingerprints.contains(it.fingerprint) }
-            .map { it.entity }
-            .toMutableList()
-
-        if (imported.isEmpty()) return 0
-        transactionDao.insertAll(imported)
-        return imported.size
     }
 
     private fun normalizeCategory(value: String): String? {
@@ -144,4 +142,16 @@ class FinanceRepository(context: Context) {
         val fingerprint: String,
         val entity: TransactionEntity
     )
+
+    private suspend fun findExistingFingerprints(fingerprints: List<String>): Set<String> {
+        if (fingerprints.isEmpty()) return emptySet()
+
+        val found = mutableSetOf<String>()
+        fingerprints.chunked(900).forEach { chunk ->
+            transactionDao.findExistingOfxFingerprints(chunk)
+                .filterNotNull()
+                .forEach { found += it }
+        }
+        return found
+    }
 }

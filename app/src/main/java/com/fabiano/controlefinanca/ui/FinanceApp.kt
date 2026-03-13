@@ -255,14 +255,22 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
                     TextButton(
                         onClick = {
                             scope.launch {
-                                val imported = viewModel.importOfx(preview)
-                                pendingOfxPreview = null
-                                currentTab = AppTab.LIST
-                                Toast.makeText(
-                                    context,
-                                    "Importacao concluida: $imported registros.",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                                val result = viewModel.importOfx(preview)
+                                result.onSuccess { imported ->
+                                    pendingOfxPreview = null
+                                    currentTab = AppTab.LIST
+                                    Toast.makeText(
+                                        context,
+                                        "Importacao concluida: $imported registros.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }.onFailure {
+                                    Toast.makeText(
+                                        context,
+                                        "Erro ao importar OFX. Tente novamente.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
                             }
                         }
                     ) {
