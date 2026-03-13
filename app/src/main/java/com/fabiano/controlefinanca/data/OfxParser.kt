@@ -56,11 +56,13 @@ object OfxParser {
         val rawDate = values["DTPOSTED"] ?: values["DTUSER"] ?: return null
         val dateMillis = parseOfxDate(rawDate) ?: return null
         val name = values["NAME"].orEmpty().ifBlank { values["MEMO"].orEmpty() }.ifBlank { "Sem nome" }
+        val fitId = values["FITID"]?.trim()?.takeIf { it.isNotBlank() }
 
         return OfxParsedTransaction(
             transactionDateMillis = dateMillis,
             amountSigned = amountSigned,
-            counterpartyLabel = name.take(120)
+            counterpartyLabel = name.take(120),
+            fitId = fitId
         )
     }
 
