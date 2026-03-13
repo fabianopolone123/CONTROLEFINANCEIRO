@@ -945,6 +945,11 @@ private fun SummaryCard(
 
 @Composable
 private fun CompactTransactionRow(item: TransactionEntity) {
+    val categoryColor = if (item.category.equals("Nao categorizado", ignoreCase = true)) {
+        Color.White
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -955,7 +960,8 @@ private fun CompactTransactionRow(item: TransactionEntity) {
         ) {
             Text(
                 text = item.category,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                color = categoryColor
             )
             Text(
                 text = item.note.ifBlank { "Sem descricao" },
@@ -986,6 +992,11 @@ private fun TransactionItem(
     onDelete: () -> Unit,
     onEditCategory: () -> Unit
 ) {
+    val categoryColor = if (item.category.equals("Nao categorizado", ignoreCase = true)) {
+        Color.White
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0xFF161F2C)),
         shape = RoundedCornerShape(16.dp)
@@ -1015,7 +1026,11 @@ private fun TransactionItem(
                     .padding(start = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Text(text = item.category, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = item.category,
+                    fontWeight = FontWeight.SemiBold,
+                    color = categoryColor
+                )
                 Text(
                     text = item.note.ifBlank { "Sem descricao" },
                     style = MaterialTheme.typography.bodySmall,
