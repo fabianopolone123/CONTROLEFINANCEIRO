@@ -111,12 +111,27 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val parsed = withContext(Dispatchers.IO) {
-                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
-                    OfxParser.parse(reader.readText())
+            val parsed = runCatching {
+                withContext(Dispatchers.IO) {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+                        input.readBytes()
+                    } ?: return@withContext null
+
+                    // OFX pode vir em UTF-8 ou ISO-8859-1; usa o parse com maior número de transações.
+                    val candidates = listOf(
+                        OfxParser.parse(String(bytes, Charsets.UTF_8)),
+                        OfxParser.parse(String(bytes, Charsets.ISO_8859_1))
+                    )
+                    candidates.maxByOrNull { it.transactions.size }
                 }
+            }.getOrNull()
+
+            if (parsed == null) {
+                Toast.makeText(context, "Falha ao ler o arquivo OFX.", Toast.LENGTH_LONG).show()
+                return@launch
             }
-            if (parsed == null || parsed.transactions.isEmpty()) {
+
+            if (parsed.transactions.isEmpty()) {
                 Toast.makeText(context, "Nao encontrei transacoes no OFX.", Toast.LENGTH_LONG).show()
             } else {
                 pendingOfxPreview = parsed
