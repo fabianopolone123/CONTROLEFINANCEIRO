@@ -56,7 +56,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -105,7 +104,6 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
     var isQuickAddExpanded by rememberSaveable { mutableStateOf(false) }
     var preselectedTypeName by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingOfxPreview by remember { mutableStateOf<OfxImportPreview?>(null) }
-    var includePreviousBalance by rememberSaveable { mutableStateOf(true) }
     var categoryEditTarget by remember { mutableStateOf<TransactionEntity?>(null) }
 
     val ofxLauncher = rememberLauncherForActivityResult(
@@ -122,7 +120,6 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
                 Toast.makeText(context, "Nao encontrei transacoes no OFX.", Toast.LENGTH_LONG).show()
             } else {
                 pendingOfxPreview = parsed
-                includePreviousBalance = parsed.previousBalance != null
             }
         }
     }
@@ -236,19 +233,6 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Transacoes encontradas: ${preview.transactions.size}")
-                        preview.previousBalance?.let {
-                            Text("Saldo anterior estimado: ${it.toBrl()}")
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Switch(
-                                    checked = includePreviousBalance,
-                                    onCheckedChange = { checked -> includePreviousBalance = checked }
-                                )
-                                Text("Incluir saldo anterior na importacao")
-                            }
-                        }
                         Text("As transacoes entram como 'Nao categorizado' para voce classificar depois.")
                     }
                 },
@@ -256,7 +240,7 @@ fun FinanceApp(viewModel: FinanceViewModel = viewModel()) {
                     TextButton(
                         onClick = {
                             scope.launch {
-                                val imported = viewModel.importOfx(preview, includePreviousBalance)
+                                val imported = viewModel.importOfx(preview)
                                 pendingOfxPreview = null
                                 currentTab = AppTab.LIST
                                 Toast.makeText(

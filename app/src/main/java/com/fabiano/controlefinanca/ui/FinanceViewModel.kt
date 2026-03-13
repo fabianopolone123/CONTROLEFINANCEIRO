@@ -121,13 +121,10 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     }
 
     suspend fun importOfx(
-        preview: OfxImportPreview,
-        includePreviousBalance: Boolean
+        preview: OfxImportPreview
     ): Int {
         return repository.importOfxTransactions(
-            ofxTransactions = preview.transactions,
-            includePreviousBalance = includePreviousBalance,
-            previousBalance = preview.previousBalance
+            ofxTransactions = preview.transactions
         )
     }
 

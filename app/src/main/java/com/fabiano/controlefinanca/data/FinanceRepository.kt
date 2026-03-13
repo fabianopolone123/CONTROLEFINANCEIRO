@@ -1,7 +1,6 @@
 package com.fabiano.controlefinanca.data
 
 import android.content.Context
-import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
 
@@ -77,9 +76,7 @@ class FinanceRepository(context: Context) {
     }
 
     suspend fun importOfxTransactions(
-        ofxTransactions: List<OfxParsedTransaction>,
-        includePreviousBalance: Boolean,
-        previousBalance: Double?
+        ofxTransactions: List<OfxParsedTransaction>
     ): Int {
         if (ofxTransactions.isEmpty()) return 0
 
@@ -105,26 +102,9 @@ class FinanceRepository(context: Context) {
             )
         }
 
-        val fingerprintPool = importedCandidates.map { it.fingerprint }.toMutableSet()
-        val includePrevious = includePreviousBalance && previousBalance != null && abs(previousBalance) >= 0.01
-        val previousBalanceValue = previousBalance ?: 0.0
-        val previousDate = if (includePrevious) {
-            Calendar.getInstance().apply {
-                timeInMillis = ofxTransactions.minOf { it.transactionDateMillis }
-                add(Calendar.DAY_OF_MONTH, -1)
-            }.timeInMillis
-        } else {
-            null
-        }
-        val previousFingerprint = if (includePrevious && previousDate != null) {
-            buildPreviousBalanceFingerprint(previousBalanceValue, previousDate)
-        } else {
-            null
-        }
-        previousFingerprint?.let { fingerprintPool.add(it) }
-
+        val fingerprintPool = importedCandidates.map { it.fingerprint }.distinct()
         val existingFingerprints = if (fingerprintPool.isNotEmpty()) {
-            transactionDao.findExistingOfxFingerprints(fingerprintPool.toList()).filterNotNull().toSet()
+            transactionDao.findExistingOfxFingerprints(fingerprintPool).filterNotNull().toSet()
         } else {
             emptySet()
         }
@@ -136,33 +116,6 @@ class FinanceRepository(context: Context) {
             .filterNot { existingFingerprints.contains(it.fingerprint) }
             .map { it.entity }
             .toMutableList()
-
-        if (includePrevious && previousDate != null && previousFingerprint != null) {
-            val balanceType = if (previousBalanceValue >= 0) TransactionType.INCOME else TransactionType.EXPENSE
-            categoryDao.insert(
-                CategoryEntity(
-                    type = balanceType,
-                    name = "Saldo anterior"
-                )
-            )
-            if (!existingFingerprints.contains(previousFingerprint)) {
-                imported.add(
-                    0,
-                    TransactionEntity(
-                        type = balanceType,
-                        amount = abs(previousBalanceValue),
-                        category = "Saldo anterior",
-                        note = "Saldo anterior importado via OFX",
-                        dateMillis = System.currentTimeMillis(),
-                        transactionDateMillis = previousDate,
-                        recurrenceType = RecurrenceType.ONE_TIME,
-                        installmentCurrent = 1,
-                        installmentTotal = 1,
-                        ofxFingerprint = previousFingerprint
-                    )
-                )
-            }
-        }
 
         if (imported.isEmpty()) return 0
         transactionDao.insertAll(imported)
@@ -185,10 +138,6 @@ class FinanceRepository(context: Context) {
         }
         val baseName = item.counterpartyLabel.trim().lowercase()
         return "fallback|${item.transactionDateMillis}|${String.format(Locale.US, "%.2f", item.amountSigned)}|$baseName"
-    }
-
-    private fun buildPreviousBalanceFingerprint(previousBalance: Double, previousDate: Long): String {
-        return "saldo|${String.format(Locale.US, "%.2f", previousBalance)}|$previousDate"
     }
 
     private data class ImportCandidate(
