@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.fabiano.controlefinanca.data.CategoryTotalRow
 import com.fabiano.controlefinanca.data.FinanceRepository
 import com.fabiano.controlefinanca.data.MonthlyNetRow
+import com.fabiano.controlefinanca.data.OfxImportPreview
 import com.fabiano.controlefinanca.data.RecurrenceType
 import com.fabiano.controlefinanca.data.TransactionEntity
 import com.fabiano.controlefinanca.data.TransactionType
@@ -111,6 +112,23 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             repository.deleteTransaction(id)
         }
+    }
+
+    fun updateTransactionCategory(id: Long, category: String) {
+        viewModelScope.launch {
+            repository.updateTransactionCategory(id, category)
+        }
+    }
+
+    suspend fun importOfx(
+        preview: OfxImportPreview,
+        includePreviousBalance: Boolean
+    ): Int {
+        return repository.importOfxTransactions(
+            ofxTransactions = preview.transactions,
+            includePreviousBalance = includePreviousBalance,
+            previousBalance = preview.previousBalance
+        )
     }
 
     private fun mergeCategories(defaults: List<String>, saved: List<String>): List<String> {
