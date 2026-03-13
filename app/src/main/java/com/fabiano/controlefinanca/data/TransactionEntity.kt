@@ -14,6 +14,5 @@ data class TransactionEntity(
     val transactionDateMillis: Long,
     val recurrenceType: RecurrenceType,
     val installmentCurrent: Int,
-    val installmentTotal: Int,
-    val ofxFingerprint: String?
+    val installmentTotal: Int
 )

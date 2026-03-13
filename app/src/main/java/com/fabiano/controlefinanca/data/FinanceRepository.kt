@@ -1,9 +1,6 @@
 package com.fabiano.controlefinanca.data
 
 import android.content.Context
-import androidx.room.withTransaction
-import java.util.Locale
-import kotlin.math.abs
 
 class FinanceRepository(context: Context) {
     private val database = AppDatabase.getInstance(context)
@@ -63,62 +60,12 @@ class FinanceRepository(context: Context) {
                 transactionDateMillis = transactionDateMillis,
                 recurrenceType = recurrenceType,
                 installmentCurrent = 1,
-                installmentTotal = normalizedInstallmentTotal,
-                ofxFingerprint = null
+                installmentTotal = normalizedInstallmentTotal
             )
         )
     }
 
     suspend fun deleteTransaction(id: Long) = transactionDao.deleteById(id)
-
-    suspend fun updateTransactionCategory(id: Long, category: String) {
-        val normalized = normalizeCategory(category) ?: return
-        transactionDao.updateCategory(id, normalized)
-    }
-
-    suspend fun importOfxTransactions(
-        ofxTransactions: List<OfxParsedTransaction>
-    ): Int {
-        if (ofxTransactions.isEmpty()) return 0
-
-        val importedCandidates = ofxTransactions.map { item ->
-            val fingerprint = buildOfxFingerprint(item)
-            val type = if (item.amountSigned >= 0) TransactionType.INCOME else TransactionType.EXPENSE
-            val amount = abs(item.amountSigned)
-            val counterpartyPrefix = if (type == TransactionType.EXPENSE) "Destinatario" else "Remetente"
-            ImportCandidate(
-                fingerprint = fingerprint,
-                entity = TransactionEntity(
-                    type = type,
-                    amount = amount,
-                    category = "Nao categorizado",
-                    note = "$counterpartyPrefix: ${item.counterpartyLabel}",
-                    dateMillis = System.currentTimeMillis(),
-                    transactionDateMillis = item.transactionDateMillis,
-                    recurrenceType = RecurrenceType.ONE_TIME,
-                    installmentCurrent = 1,
-                    installmentTotal = 1,
-                    ofxFingerprint = fingerprint
-                )
-            )
-        }.distinctBy { it.fingerprint }
-
-        val fingerprintPool = importedCandidates.map { it.fingerprint }.distinct()
-        return database.withTransaction {
-            val existingFingerprints = findExistingFingerprints(fingerprintPool)
-
-            categoryDao.insert(CategoryEntity(type = TransactionType.INCOME, name = "Nao categorizado"))
-            categoryDao.insert(CategoryEntity(type = TransactionType.EXPENSE, name = "Nao categorizado"))
-
-            val imported = importedCandidates
-                .filterNot { existingFingerprints.contains(it.fingerprint) }
-                .map { it.entity }
-
-            if (imported.isEmpty()) return@withTransaction 0
-            transactionDao.insertAll(imported)
-            imported.size
-        }
-    }
 
     private fun normalizeCategory(value: String): String? {
         val cleaned = value.trim().replace(Regex("\\s+"), " ")
@@ -127,31 +74,5 @@ class FinanceRepository(context: Context) {
 
     private fun defaultCategory(type: TransactionType): String {
         return if (type == TransactionType.INCOME) "Receitas" else "Outros"
-    }
-
-    private fun buildOfxFingerprint(item: OfxParsedTransaction): String {
-        val fitId = item.fitId?.trim()?.lowercase()
-        if (!fitId.isNullOrBlank()) {
-            return "fitid|$fitId"
-        }
-        val baseName = item.counterpartyLabel.trim().lowercase()
-        return "fallback|${item.transactionDateMillis}|${String.format(Locale.US, "%.2f", item.amountSigned)}|$baseName"
-    }
-
-    private data class ImportCandidate(
-        val fingerprint: String,
-        val entity: TransactionEntity
-    )
-
-    private suspend fun findExistingFingerprints(fingerprints: List<String>): Set<String> {
-        if (fingerprints.isEmpty()) return emptySet()
-
-        val found = mutableSetOf<String>()
-        fingerprints.chunked(900).forEach { chunk ->
-            transactionDao.findExistingOfxFingerprints(chunk)
-                .filterNotNull()
-                .forEach { found += it }
-        }
-        return found
     }
 }

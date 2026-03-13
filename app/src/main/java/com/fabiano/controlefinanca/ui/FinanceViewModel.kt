@@ -6,17 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.fabiano.controlefinanca.data.CategoryTotalRow
 import com.fabiano.controlefinanca.data.FinanceRepository
 import com.fabiano.controlefinanca.data.MonthlyNetRow
-import com.fabiano.controlefinanca.data.OfxImportPreview
 import com.fabiano.controlefinanca.data.RecurrenceType
 import com.fabiano.controlefinanca.data.TransactionEntity
 import com.fabiano.controlefinanca.data.TransactionType
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 data class FinanceUiState(
     val income: Double = 0.0,
@@ -113,24 +110,6 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     fun deleteTransaction(id: Long) {
         viewModelScope.launch {
             repository.deleteTransaction(id)
-        }
-    }
-
-    fun updateTransactionCategory(id: Long, category: String) {
-        viewModelScope.launch {
-            repository.updateTransactionCategory(id, category)
-        }
-    }
-
-    suspend fun importOfx(
-        preview: OfxImportPreview
-    ): Result<Int> {
-        return runCatching {
-            withContext(Dispatchers.IO) {
-                repository.importOfxTransactions(
-                    ofxTransactions = preview.transactions
-                )
-            }
         }
     }
 

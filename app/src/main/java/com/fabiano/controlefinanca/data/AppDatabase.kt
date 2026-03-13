@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [TransactionEntity::class, CategoryEntity::class],
-    version = 4,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(DbConverters::class)
@@ -87,37 +87,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        private val MIGRATION_3_4 = object : Migration(3, 4) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    ALTER TABLE transactions
-                    ADD COLUMN ofxFingerprint TEXT
-                    """.trimIndent()
-                )
-                db.execSQL(
-                    """
-                    UPDATE transactions
-                    SET ofxFingerprint =
-                        'legacy|' || type || '|' || printf('%.2f', amount) || '|' ||
-                        transactionDateMillis || '|' || note
-                    WHERE ofxFingerprint IS NULL
-                        AND (
-                            note LIKE 'Remetente:%'
-                            OR note LIKE 'Destinatario:%'
-                            OR note = 'Saldo anterior importado via OFX'
-                        )
-                    """.trimIndent()
-                )
-                db.execSQL(
-                    """
-                    CREATE INDEX IF NOT EXISTS index_transactions_ofxFingerprint
-                    ON transactions(ofxFingerprint)
-                    """.trimIndent()
-                )
-            }
-        }
-
         fun getInstance(context: Context): AppDatabase {
             return instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -125,7 +94,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "controle_financa.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { instance = it }
             }
